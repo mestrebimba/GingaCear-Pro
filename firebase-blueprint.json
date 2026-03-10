@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "athlete", "judge"] },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Weight and skill categories for the championship",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "minWeight": { "type": "number" },
+        "maxWeight": { "type": "number" },
+        "gender": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Athlete": {
+      "title": "Athlete",
+      "description": "Athlete registration for the championship",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "nickname": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "group": { "type": "string" },
+        "professor": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "rejected"] },
+        "registrationDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "categoryId", "status"]
+    },
+    "Bracket": {
+      "title": "Bracket",
+      "description": "Tournament bracket for a category",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string" },
+        "matches": { "type": "array" },
+        "status": { "type": "string", "enum": ["draft", "active", "completed"] }
+      }
+    },
+    "Score": {
+      "title": "Score",
+      "description": "Judging scores for a match",
+      "type": "object",
+      "properties": {
+        "matchId": { "type": "string" },
+        "judgeId": { "type": "string" },
+        "athleteId": { "type": "string" },
+        "points": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Official announcements from admins",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Championship categories"
+    },
+    "/athletes/{athleteId}": {
+      "schema": "Athlete",
+      "description": "Athlete registrations"
+    },
+    "/brackets/{bracketId}": {
+      "schema": "Bracket",
+      "description": "Tournament brackets"
+    },
+    "/scores/{scoreId}": {
+      "schema": "Score",
+      "description": "Judging scores"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Official announcements"
+    }
+  }
+}

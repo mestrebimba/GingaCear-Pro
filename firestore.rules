@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "nobrufortal@gmail.com" ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName == "vareta Bdc");
+    }
+    
+    function isJudge() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'judge';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Athletes
+    match /athletes/{athleteId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Brackets
+    match /brackets/{bracketId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Scores
+    match /scores/{scoreId} {
+      allow read: if true;
+      allow create: if isJudge() || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Announcements
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Live Streams
+    match /live_streams/{streamId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAdmin();
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+  }
+}

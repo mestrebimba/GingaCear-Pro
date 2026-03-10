@@ -1,0 +1,7 @@
+{
+  "name": "Ceará Ginga Pro",
+  "description": "Aplicativo para gestão de campeonatos de capoeira, com chaveamento, inscrições e sistema de notas.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
