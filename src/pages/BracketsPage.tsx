@@ -117,11 +117,16 @@ function MatchCard({ match, athletes }: { key?: string, match: Match, athletes: 
   return (
     <div className="card p-0 overflow-hidden border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow">
       <div className="p-4 space-y-3">
-        {/* Athlete 1 */}
+        {/* Athlete 1 - Viola */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200">
-              <img src={athlete1?.photoURL || 'https://picsum.photos/seed/athlete1/100'} alt="" className="w-full h-full object-cover" />
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200">
+                <img src={athlete1?.photoURL || 'https://picsum.photos/seed/athlete1/100'} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute -top-1 -left-1 bg-primary text-white text-[8px] font-black px-1 rounded uppercase">
+                Viola
+              </div>
             </div>
             <div>
               <p className="font-bold text-sm">{athlete1?.nickname || athlete1?.fullName || 'TBD'}</p>
@@ -135,11 +140,16 @@ function MatchCard({ match, athletes }: { key?: string, match: Match, athletes: 
 
         <div className="h-px bg-zinc-100"></div>
 
-        {/* Athlete 2 */}
+        {/* Athlete 2 - Gunga */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200">
-              <img src={athlete2?.photoURL || 'https://picsum.photos/seed/athlete2/100'} alt="" className="w-full h-full object-cover" />
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200">
+                <img src={athlete2?.photoURL || 'https://picsum.photos/seed/athlete2/100'} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute -top-1 -left-1 bg-secondary text-primary text-[8px] font-black px-1 rounded uppercase">
+                Gunga
+              </div>
             </div>
             <div>
               <p className="font-bold text-sm">{athlete2?.nickname || athlete2?.fullName || 'TBD'}</p>

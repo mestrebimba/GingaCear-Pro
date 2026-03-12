@@ -1,34 +1,31 @@
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "User profile and role information",
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information and role",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "email": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "athlete", "judge"] },
+        "role": { "type": "string", "enum": ["admin", "staff", "judge", "athlete"] },
         "photoURL": { "type": "string" }
       },
       "required": ["uid", "email", "role"]
     },
     "Category": {
       "title": "Category",
-      "description": "Weight and skill categories for the championship",
+      "description": "Competition category",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
         "name": { "type": "string" },
-        "minWeight": { "type": "number" },
-        "maxWeight": { "type": "number" },
-        "gender": { "type": "string" }
+        "gender": { "type": "string", "enum": ["M", "F", "Mixed"] }
       },
-      "required": ["name"]
+      "required": ["name", "gender"]
     },
     "Athlete": {
       "title": "Athlete",
-      "description": "Athlete registration for the championship",
+      "description": "Registered athlete",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -49,46 +46,80 @@
       "type": "object",
       "properties": {
         "categoryId": { "type": "string" },
-        "matches": { "type": "array" },
-        "status": { "type": "string", "enum": ["draft", "active", "completed"] }
-      }
+        "status": { "type": "string" },
+        "matches": { "type": "array" }
+      },
+      "required": ["categoryId", "matches"]
     },
     "Score": {
       "title": "Score",
-      "description": "Judging scores for a match",
+      "description": "Judge score for a match",
       "type": "object",
       "properties": {
         "matchId": { "type": "string" },
         "judgeId": { "type": "string" },
+        "judgeName": { "type": "string" },
+        "judgeType": { "type": "string", "enum": ["tecnica", "musicalidade", "criatividade"] },
+        "gameType": { "type": "string", "enum": ["angola", "regional"] },
         "athleteId": { "type": "string" },
         "points": { "type": "number" },
         "timestamp": { "type": "string", "format": "date-time" }
-      }
+      },
+      "required": ["matchId", "judgeId", "athleteId", "points", "gameType"]
     },
     "Announcement": {
       "title": "Announcement",
-      "description": "Official announcements from admins",
+      "description": "Event announcement",
       "type": "object",
       "properties": {
         "title": { "type": "string" },
         "content": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "authorId": { "type": "string" }
-      }
+      },
+      "required": ["title", "content", "date"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Support chat session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "timestamp": { "type": "object" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "unreadCount": { "type": "number" }
+      },
+      "required": ["userId", "userName", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "object" },
+        "isAI": { "type": "boolean" }
+      },
+      "required": ["chatId", "senderId", "text"]
     }
   },
   "firestore": {
     "/users/{uid}": {
-      "schema": "User",
+      "schema": "UserProfile",
       "description": "User profiles"
     },
     "/categories/{categoryId}": {
       "schema": "Category",
-      "description": "Championship categories"
+      "description": "Competition categories"
     },
     "/athletes/{athleteId}": {
       "schema": "Athlete",
-      "description": "Athlete registrations"
+      "description": "Registered athletes"
     },
     "/brackets/{bracketId}": {
       "schema": "Bracket",
@@ -96,11 +127,31 @@
     },
     "/scores/{scoreId}": {
       "schema": "Score",
-      "description": "Judging scores"
+      "description": "Match scores"
     },
     "/announcements/{announcementId}": {
       "schema": "Announcement",
-      "description": "Official announcements"
+      "description": "Event announcements"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Support chats"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages"
+    },
+    "/settings/{settingId}": {
+      "schema": "object",
+      "description": "Event settings"
+    },
+    "/live_streams/{streamId}": {
+      "schema": "object",
+      "description": "Live stream info"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "object",
+      "description": "User notifications"
     }
   }
 }

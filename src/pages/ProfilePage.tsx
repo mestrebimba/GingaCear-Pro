@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Athlete, Category, UserProfile, Score } from '../types';
-import { User, ShieldCheck, Trophy, Star, MapPin, School, GraduationCap } from 'lucide-react';
+import { User, ShieldCheck, Trophy, Star, MapPin, School, GraduationCap, Music, Gamepad2 } from 'lucide-react';
 
 export default function ProfilePage({ profile }: { profile: UserProfile | null }) {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
@@ -44,7 +44,13 @@ export default function ProfilePage({ profile }: { profile: UserProfile | null }
     return <div className="text-center py-20 animate-pulse">Carregando perfil...</div>;
   }
 
-  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b.points, 0) / scores.length : 0;
+  const angolaScores = scores.filter(s => s.gameType === 'angola');
+  const regionalScores = scores.filter(s => s.gameType === 'regional');
+
+  const angolaAvg = angolaScores.length > 0 ? angolaScores.reduce((a, b) => a + b.points, 0) / angolaScores.length : 0;
+  const regionalAvg = regionalScores.length > 0 ? regionalScores.reduce((a, b) => a + b.points, 0) / regionalScores.length : 0;
+  
+  const avgScore = (angolaAvg + regionalAvg) / (angolaAvg > 0 && regionalAvg > 0 ? 2 : 1);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -92,6 +98,22 @@ export default function ProfilePage({ profile }: { profile: UserProfile | null }
                 <Star key={i} size={14} fill={i <= Math.round(avgScore / 2) ? '#fcd116' : 'none'} className={i <= Math.round(avgScore / 2) ? 'text-secondary' : 'text-zinc-200'} />
               ))}
             </div>
+            <div className="mt-6 w-full space-y-2">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                <span className="text-zinc-400">São Bento Angola</span>
+                <span className="text-primary">{angolaAvg.toFixed(1)}</span>
+              </div>
+              <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-primary h-full transition-all" style={{ width: `${angolaAvg * 10}%` }}></div>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-black uppercase pt-2">
+                <span className="text-zinc-400">São Bento Regional</span>
+                <span className="text-primary">{regionalAvg.toFixed(1)}</span>
+              </div>
+              <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-secondary h-full transition-all" style={{ width: `${regionalAvg * 10}%` }}></div>
+              </div>
+            </div>
           </div>
 
           <div className="card p-6 space-y-4">
@@ -134,12 +156,12 @@ export default function ProfilePage({ profile }: { profile: UserProfile | null }
               {scores.map((score) => (
                 <div key={score.id} className="card flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-zinc-100 rounded-lg flex items-center justify-center text-primary">
-                      <Star size={20} />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${score.gameType === 'angola' ? 'bg-primary/10 text-primary' : 'bg-secondary/20 text-primary'}`}>
+                      {score.gameType === 'angola' ? <Music size={20} /> : <Gamepad2 size={20} />}
                     </div>
                     <div>
-                      <p className="font-bold">Avaliação de Jurado</p>
-                      <p className="text-xs text-zinc-400">{new Date(score.timestamp).toLocaleDateString('pt-BR')}</p>
+                      <p className="font-bold">Avaliação: <span className="uppercase">{score.gameType}</span></p>
+                      <p className="text-xs text-zinc-400">Jurado {score.judgeType} • {new Date(score.timestamp).toLocaleDateString('pt-BR')}</p>
                     </div>
                   </div>
                   <div className="text-2xl font-black text-primary">

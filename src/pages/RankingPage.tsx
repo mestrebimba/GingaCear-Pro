@@ -35,12 +35,21 @@ export default function RankingPage() {
     
     const ranked = catAthletes.map(athlete => {
       const athleteScores = scores.filter(s => s.athleteId === athlete.id);
-      const totalPoints = athleteScores.reduce((acc, curr) => acc + curr.points, 0);
-      const avgPoints = athleteScores.length > 0 ? totalPoints / athleteScores.length : 0;
+      
+      // Separate scores by game type
+      const angolaScores = athleteScores.filter(s => s.gameType === 'angola');
+      const regionalScores = athleteScores.filter(s => s.gameType === 'regional');
+
+      const angolaAvg = angolaScores.length > 0 ? angolaScores.reduce((a, b) => a + b.points, 0) / angolaScores.length : 0;
+      const regionalAvg = regionalScores.length > 0 ? regionalScores.reduce((a, b) => a + b.points, 0) / regionalScores.length : 0;
+      
+      // Final average is the average of both rounds
+      const avgPoints = (angolaAvg + regionalAvg) / (angolaAvg > 0 && regionalAvg > 0 ? 2 : 1);
       
       return {
         ...athlete,
-        totalPoints,
+        angolaAvg,
+        regionalAvg,
         avgPoints,
         scoreCount: athleteScores.length
       };
@@ -102,7 +111,15 @@ export default function RankingPage() {
 
                 <div>
                   <h3 className="font-black uppercase tracking-tighter text-lg">{athlete.nickname || athlete.fullName}</h3>
-                  <p className="text-xs text-zinc-500 font-bold uppercase">{athlete.group}</p>
+                  <p className="text-xs text-zinc-500 font-bold uppercase mb-2">{athlete.group}</p>
+                  <div className="flex gap-2">
+                    <div className="px-2 py-0.5 bg-primary/10 rounded text-[10px] font-bold text-primary uppercase">
+                      Angola: {athlete.angolaAvg.toFixed(1)}
+                    </div>
+                    <div className="px-2 py-0.5 bg-secondary/20 rounded text-[10px] font-bold text-primary uppercase">
+                      Regional: {athlete.regionalAvg.toFixed(1)}
+                    </div>
+                  </div>
                 </div>
               </div>
 

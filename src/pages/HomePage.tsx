@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, limit, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Announcement, UserProfile, LiveStream, EventSettings } from '../types';
 import { Bell, Play, Trophy, Users, Calendar, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getYouTubeEmbedUrl } from '../utils/youtube';
 
 export default function HomePage({ profile, settings }: { profile: UserProfile | null, settings: EventSettings }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -45,7 +47,7 @@ export default function HomePage({ profile, settings }: { profile: UserProfile |
           </div>
           <div className="card p-0 overflow-hidden bg-black aspect-video relative group">
             <iframe 
-              src={stream.url}
+              src={getYouTubeEmbedUrl(stream.url)}
               title={stream.title}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -62,7 +64,7 @@ export default function HomePage({ profile, settings }: { profile: UserProfile |
       <section className="relative h-64 sm:h-96 rounded-3xl overflow-hidden bg-accent flex items-center justify-center text-center p-6">
         <div className="absolute inset-0 opacity-40">
           <img 
-            src="https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=2000&auto=format&fit=crop" 
+            src="https://media.discordapp.net/attachments/1479754145278853266/1481280571933069432/Untitled_design.png?ex=69b2bd89&is=69b16c09&hm=b3a2d75bece25a0106fbcd01272494cc23f0302c3bf5b5ef97ba2cf227eb9ec9&=&format=webp&quality=lossless&width=550&height=309" 
             alt="Capoeira" 
             className="w-full h-full object-cover"
           />
@@ -82,16 +84,15 @@ export default function HomePage({ profile, settings }: { profile: UserProfile |
             {settings.eventName}
           </h1>
           <p className="text-lg sm:text-xl text-white font-medium mb-8">
-            O maior espetáculo da capoeira cearense em {settings.eventYear}. Técnica, mandinga e tradição.
+            O maior sistema de competição da capoeira cearense em {settings.eventYear}. Agora a ginga vira pontuação.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <button className="btn-secondary flex items-center gap-2">
-              <Play size={20} fill="currentColor" />
-              Ver Transmissão
-            </button>
-            <button className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-6 py-2 rounded-lg font-medium hover:bg-white/20 transition-all">
-              Ver Chaveamento
-            </button>
+            <Link to="/registration" className="btn-secondary flex items-center gap-2">
+              Inscreva-se Agora
+            </Link>
+            <Link to="/regulations" className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-6 py-2 rounded-lg font-medium hover:bg-white/20 transition-all">
+              Ver Regulamento
+            </Link>
           </div>
         </div>
       </section>

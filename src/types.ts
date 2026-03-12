@@ -1,10 +1,13 @@
-export type UserRole = 'admin' | 'athlete' | 'judge';
+export type UserRole = 'admin' | 'athlete' | 'judge' | 'staff';
+export type JudgeType = 'viola' | 'gunga' | 'jogo';
+export type GameType = 'angola' | 'regional';
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   role: UserRole;
+  judgeType?: JudgeType;
   photoURL?: string;
 }
 
@@ -50,6 +53,9 @@ export interface Score {
   id: string;
   matchId: string;
   judgeId: string;
+  judgeName?: string;
+  judgeType?: JudgeType;
+  gameType: GameType;
   athleteId: string;
   points: number;
   timestamp: string;
@@ -86,4 +92,7 @@ export interface EventSettings {
   eventName: string;
   eventYear: string;
   logoURL: string;
+  regulations?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }

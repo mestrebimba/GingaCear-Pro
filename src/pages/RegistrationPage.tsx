@@ -2,18 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, where, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Category, UserProfile, Athlete, EventSettings } from '../types';
-import { ClipboardList, User, Users, ShieldCheck, Camera, CheckCircle2, AlertCircle, Check } from 'lucide-react';
-
-const AVATARS = [
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Milo',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Zoe',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Leo',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia',
-];
+import { ClipboardList, User, Users, ShieldCheck, Camera, CheckCircle2, AlertCircle, Check, Upload, X } from 'lucide-react';
+import { sendDiscordMessage, DISCORD_WEBHOOKS } from '../services/discordService';
 
 export default function RegistrationPage({ profile, settings }: { profile: UserProfile | null, settings: EventSettings }) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -21,6 +11,7 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -28,7 +19,7 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
     categoryId: '',
     group: '',
     professor: '',
-    photoURL: AVATARS[0]
+    photoURL: ''
   });
 
   useEffect(() => {
@@ -39,7 +30,7 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
     });
 
     // Check if user is already registered
-    if (profile) {
+    if (profile && profile.role !== 'admin' && profile.role !== 'staff') {
       const q = query(collection(db, 'athletes'), where('uid', '==', profile.uid));
       const unsubscribeAthlete = onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
@@ -51,14 +42,65 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
         unsubscribeCats();
         unsubscribeAthlete();
       };
+    } else {
+      setLoading(false);
     }
 
     return () => unsubscribeCats();
   }, [profile]);
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('A foto deve ter no máximo 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+        setPhotoPreview(base64);
+        setFormData(prev => ({ ...prev, photoURL: base64 }));
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+    if (!formData.photoURL) {
+      alert('Por favor, adicione uma foto.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -70,7 +112,37 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
       };
       
       await addDoc(collection(db, 'athletes'), athleteData);
+
+      // Discord Log
+      const categoryName = categories.find(c => c.id === formData.categoryId)?.name || 'N/A';
+      await sendDiscordMessage(DISCORD_WEBHOOKS.REGISTRATION, `📝 **Nova Inscrição Recebida!**`, [
+        {
+          title: `Atleta: ${formData.fullName}`,
+          color: 0x00FF00,
+          fields: [
+            { name: 'Apelido', value: formData.nickname || '-', inline: true },
+            { name: 'Categoria', value: categoryName, inline: true },
+            { name: 'Grupo', value: formData.group, inline: true },
+            { name: 'Professor', value: formData.professor, inline: true },
+            { name: 'E-mail', value: profile.email, inline: false },
+          ],
+          timestamp: new Date().toISOString(),
+        }
+      ]);
+
       setSuccess(true);
+      if (profile.role === 'admin' || profile.role === 'staff') {
+        setFormData({
+          fullName: '',
+          nickname: '',
+          categoryId: '',
+          group: '',
+          professor: '',
+          photoURL: ''
+        });
+        setPhotoPreview(null);
+        setTimeout(() => setSuccess(false), 3000);
+      }
     } catch (error) {
       console.error('Registration error:', error);
     } finally {
@@ -244,27 +316,39 @@ export default function RegistrationPage({ profile, settings }: { profile: UserP
 
             <div className="space-y-4 md:col-span-2">
               <label className="text-sm font-bold uppercase text-zinc-400 flex items-center gap-2">
-                <Camera size={16} /> Escolha seu Avatar
+                <Camera size={16} /> Sua Foto de Atleta
               </label>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-                {AVATARS.map((url) => (
-                  <button
-                    key={url}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, photoURL: url })}
-                    className={cn(
-                      "relative w-full aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105",
-                      formData.photoURL === url ? "border-primary ring-2 ring-primary/20" : "border-transparent bg-zinc-100"
-                    )}
-                  >
-                    <img src={url} alt="Avatar" className="w-full h-full object-cover" />
-                    {formData.photoURL === url && (
-                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                        <Check className="text-primary" size={24} strokeWidth={4} />
-                      </div>
-                    )}
-                  </button>
-                ))}
+              
+              <div className="flex flex-col items-center justify-center">
+                {photoPreview ? (
+                  <div className="relative w-48 h-48 rounded-2xl overflow-hidden border-4 border-primary shadow-xl">
+                    <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setPhotoPreview(null);
+                        setFormData(prev => ({ ...prev, photoURL: '' }));
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="w-full h-48 border-2 border-dashed border-zinc-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-50 transition-all group">
+                    <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <Upload className="text-zinc-400" size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-zinc-400 uppercase">Clique para escolher foto</p>
+                    <p className="text-[10px] text-zinc-300 uppercase mt-1">PNG ou JPG até 2MB</p>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </div>

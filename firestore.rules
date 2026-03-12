@@ -1,82 +1,152 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, email, displayName, role, photoURL
+    //
+    // Collection: categories
+    // Fields: name, gender
+    //
+    // Collection: athletes
+    // Fields: uid, fullName, nickname, categoryId, group, professor, photoURL, status, registrationDate
+    //
+    // Collection: brackets
+    // Fields: categoryId, status, matches
+    //
+    // Collection: scores
+    // Fields: matchId, judgeId, judgeName, judgeType, gameType, athleteId, points, timestamp
+    //
+    // Collection: announcements
+    // Fields: title, content, date, authorId
+    //
+    // Collection: chats
+    // Fields: userId, userName, lastMessage, timestamp, status, unreadCount
+    //
+    // Collection: messages
+    // Fields: chatId, senderId, senderName, text, timestamp, isAI
+    //
+    // ===============================================================
+
+    // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
-    }
-    
-    function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         request.auth.token.email == "nobrufortal@gmail.com" ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName == "vareta Bdc");
-    }
-    
-    function isJudge() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'judge';
     }
 
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users
-    match /users/{uid} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(uid) || isAdmin();
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "nobrufortal@gmail.com");
     }
 
-    // Categories
+    function isStaff() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'staff']);
+    }
+
+    function isJudge() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'staff', 'judge']);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validators
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'staff', 'judge', 'athlete'];
+    }
+
+    function isValidAthlete(data) {
+      return data.uid is string &&
+             data.fullName is string &&
+             data.categoryId is string &&
+             data.status in ['pending', 'confirmed', 'rejected'];
+    }
+
+    function isValidScore(data) {
+      return data.matchId is string &&
+             data.judgeId is string &&
+             data.athleteId is string &&
+             data.points is number &&
+             data.gameType in ['angola', 'regional'];
+    }
+
+    // Rules
+    match /users/{uid} {
+      // PII Protection: Only owners or staff can read full profile
+      allow read: if isOwner(uid) || isStaff();
+      // Publicly available info (if needed, but here we prefer denormalization)
+      // allow get: if isAuthenticated(); 
+      
+      allow create: if isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == 'athlete';
+      allow update: if (isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+    }
+
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Athletes
     match /athletes/{athleteId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidAthlete(request.resource.data);
+      allow update: if isStaff() || (isAuthenticated() && resource.data.uid == request.auth.uid && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
     }
 
-    // Brackets
     match /brackets/{bracketId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isStaff();
     }
 
-    // Scores
     match /scores/{scoreId} {
       allow read: if true;
-      allow create: if isJudge() || isAdmin();
+      allow create: if isJudge() && isValidScore(request.resource.data);
       allow update, delete: if isAdmin();
     }
 
-    // Announcements
     match /announcements/{announcementId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isStaff();
     }
 
-    // Live Streams
     match /live_streams/{streamId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isStaff();
     }
 
-    // Settings
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
-      allow create: if isAdmin();
+      allow create: if isStaff();
       allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /chats/{chatId} {
+      allow read: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (isStaff() || get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && (isStaff() || get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.userId == request.auth.uid);
     }
   }
 }

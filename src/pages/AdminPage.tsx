@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Category, Athlete, UserProfile, Announcement, Bracket, Match, EventSettings } from '../types';
+import { sendDiscordMessage, DISCORD_WEBHOOKS } from '../services/discordService';
 import { 
   Users, 
   Trophy, 
@@ -15,15 +16,66 @@ import {
   Shuffle,
   Video,
   Settings as SettingsIcon,
-  Save
+  Save,
+  FileText,
+  Printer,
+  Palette
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getYouTubeEmbedUrl } from '../utils/youtube';
 
 export default function AdminPage({ profile, settings }: { profile: UserProfile | null, settings: EventSettings }) {
   const [activeTab, setActiveTab] = useState<'registrations' | 'categories' | 'athletes' | 'brackets' | 'announcements' | 'live' | 'settings'>('registrations');
+  const [accessCode, setAccessCode] = useState('');
+  const [hasAccess, setHasAccess] = useState(false);
+
+  const handleAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accessCode === 'rabelodev') {
+      if (profile) {
+        await updateDoc(doc(db, 'users', profile.uid), { role: 'staff' });
+        
+        // Discord Log for staff access
+        await sendDiscordMessage(DISCORD_WEBHOOKS.STAFF, `🔑 **Acesso Staff Concedido (Admin Panel)!**`, [
+          {
+            title: `Usuário: ${profile.displayName}`,
+            color: 0xF1C40F,
+            fields: [
+              { name: 'E-mail', value: profile.email, inline: true },
+              { name: 'Ação', value: 'Usou código de acesso rabelodev no AdminPage', inline: true },
+            ],
+            timestamp: new Date().toISOString(),
+          }
+        ]);
+      }
+      setHasAccess(true);
+    } else {
+      alert('Código de acesso incorreto.');
+    }
+  };
   
-  if (profile?.role !== 'admin') {
-    return <div className="text-center py-20">Acesso negado. Apenas administradores podem acessar esta área.</div>;
+  if (profile?.role !== 'admin' && profile?.role !== 'staff' && !hasAccess) {
+    return (
+      <div className="max-w-md mx-auto py-20">
+        <div className="card space-y-6 text-center">
+          <SettingsIcon size={48} className="mx-auto text-primary mb-4" />
+          <h2 className="text-2xl font-black uppercase tracking-tight">Acesso Restrito</h2>
+          <p className="text-zinc-500">Insira o código de acesso para entrar no painel administrativo.</p>
+          <form onSubmit={handleAccess} className="space-y-4">
+            <input 
+              type="password"
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-primary transition-all"
+              placeholder="••••••••"
+              value={accessCode}
+              onChange={e => setAccessCode(e.target.value)}
+            />
+            <button type="submit" className="w-full btn-primary py-3 font-bold uppercase tracking-widest">
+              Entrar
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -71,6 +123,9 @@ function SettingsTab({ settings }: { settings: EventSettings }) {
   const [eventName, setEventName] = useState(settings.eventName);
   const [eventYear, setEventYear] = useState(settings.eventYear);
   const [logoURL, setLogoURL] = useState(settings.logoURL);
+  const [regulations, setRegulations] = useState(settings.regulations || '');
+  const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || '#1a1a1a');
+  const [secondaryColor, setSecondaryColor] = useState(settings.secondaryColor || '#fcd116');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -80,8 +135,26 @@ function SettingsTab({ settings }: { settings: EventSettings }) {
       await setDoc(doc(db, 'settings', 'main'), {
         eventName,
         eventYear,
-        logoURL
+        logoURL,
+        regulations,
+        primaryColor,
+        secondaryColor
       });
+
+      // Discord Log for settings update
+      await sendDiscordMessage(DISCORD_WEBHOOKS.STAFF, `⚙️ **Configurações do Evento Atualizadas!**`, [
+        {
+          title: `Evento: ${eventName}`,
+          color: 0x3498DB,
+          fields: [
+            { name: 'Ano', value: eventYear, inline: true },
+            { name: 'Cor Primária', value: primaryColor, inline: true },
+            { name: 'Cor Secundária', value: secondaryColor, inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }
+      ]);
+
       alert('Configurações salvas com sucesso!');
     } catch (error) {
       console.error(error);
@@ -94,59 +167,107 @@ function SettingsTab({ settings }: { settings: EventSettings }) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Configurações do Evento</h2>
-      <form onSubmit={handleSave} className="card space-y-4 max-w-2xl">
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-zinc-400 uppercase">Nome do Evento</label>
-          <input 
-            required
-            className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
-            value={eventName}
-            onChange={e => setEventName(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-zinc-400 uppercase">Ano do Evento</label>
-          <input 
-            required
-            className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
-            value={eventYear}
-            onChange={e => setEventYear(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-zinc-400 uppercase">URL da Logo</label>
-          <input 
-            required
-            className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
-            value={logoURL}
-            onChange={e => setLogoURL(e.target.value)}
-          />
-        </div>
-        
-        <div className="pt-4">
-          <button 
-            type="submit"
-            disabled={saving}
-            className="w-full btn-primary flex items-center justify-center gap-2"
-          >
-            <Save size={18} /> {saving ? 'Salvando...' : 'Salvar Alterações'}
-          </button>
-        </div>
-      </form>
-
-      <div className="card max-w-2xl">
-        <h3 className="text-sm font-bold text-zinc-400 uppercase mb-4">Pré-visualização da Logo</h3>
-        <div className="flex items-center justify-center p-8 bg-zinc-100 rounded-xl">
-          <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg border-4 border-secondary overflow-hidden flex items-center justify-center">
-            <img 
-              src={logoURL} 
-              alt="Preview Logo" 
-              className="w-full h-full object-contain p-2"
-              referrerPolicy="no-referrer"
+      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card space-y-4">
+          <h3 className="font-bold flex items-center gap-2"><SettingsIcon size={18} /> Geral</h3>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400 uppercase">Nome do Evento</label>
+            <input 
+              required
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
+              value={eventName}
+              onChange={e => setEventName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400 uppercase">Ano do Evento</label>
+            <input 
+              required
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
+              value={eventYear}
+              onChange={e => setEventYear(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400 uppercase">URL da Logo</label>
+            <input 
+              required
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2"
+              value={logoURL}
+              onChange={e => setLogoURL(e.target.value)}
             />
           </div>
         </div>
-      </div>
+
+        <div className="card space-y-4">
+          <h3 className="font-bold flex items-center gap-2"><Palette size={18} /> Identidade Visual</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400 uppercase">Cor Primária</label>
+              <div className="flex gap-2">
+                <input 
+                  type="color"
+                  className="w-12 h-10 rounded cursor-pointer"
+                  value={primaryColor}
+                  onChange={e => setPrimaryColor(e.target.value)}
+                />
+                <input 
+                  className="flex-1 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-sm"
+                  value={primaryColor}
+                  onChange={e => setPrimaryColor(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400 uppercase">Cor Secundária</label>
+              <div className="flex gap-2">
+                <input 
+                  type="color"
+                  className="w-12 h-10 rounded cursor-pointer"
+                  value={secondaryColor}
+                  onChange={e => setSecondaryColor(e.target.value)}
+                />
+                <input 
+                  className="flex-1 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-sm"
+                  value={secondaryColor}
+                  onChange={e => setSecondaryColor(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-zinc-100 rounded-xl flex items-center justify-center">
+            <div className="w-24 h-24 bg-white rounded-full p-2 shadow-lg border-4 overflow-hidden flex items-center justify-center" style={{ borderColor: secondaryColor }}>
+              <img 
+                src={logoURL} 
+                alt="Preview Logo" 
+                className="w-full h-full object-contain p-1"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card space-y-4 lg:col-span-2">
+          <h3 className="font-bold flex items-center gap-2"><FileText size={18} /> Regulamento (Markdown)</h3>
+          <textarea 
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2 h-64 font-mono text-sm"
+            placeholder="# Regulamento Oficial..."
+            value={regulations}
+            onChange={e => setRegulations(e.target.value)}
+          />
+        </div>
+        
+        <div className="lg:col-span-2">
+          <button 
+            type="submit"
+            disabled={saving}
+            className="w-full btn-primary py-4 text-lg font-black uppercase tracking-widest flex items-center justify-center gap-2"
+          >
+            <Save size={24} /> {saving ? 'Salvando...' : 'Salvar Todas as Alterações'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -171,12 +292,26 @@ function LiveStreamTab() {
   }, []);
 
   const handleSave = async (isActive: boolean) => {
+    const sanitizedUrl = getYouTubeEmbedUrl(url);
     await setDoc(doc(db, 'live_streams', 'main'), {
-      url,
+      url: sanitizedUrl,
       title,
       isActive,
       startedAt: isActive ? new Date().toISOString() : (stream?.startedAt || new Date().toISOString())
     });
+
+    // Discord Log for live stream
+    await sendDiscordMessage(DISCORD_WEBHOOKS.STAFF, isActive ? `🔴 **Transmissão Ao Vivo Iniciada!**` : `⚪ **Transmissão Ao Vivo Encerrada!**`, [
+      {
+        title: title || 'Sem título',
+        color: isActive ? 0xE74C3C : 0x95A5A6,
+        fields: [
+          { name: 'URL', value: sanitizedUrl || 'N/A', inline: false },
+          { name: 'Status', value: isActive ? 'ONLINE' : 'OFFLINE', inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }
+    ]);
   };
 
   return (
@@ -387,9 +522,157 @@ function AthletesTab() {
     });
   }, []);
 
+  const printCategoryList = (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId);
+    const catAthletes = athletes.filter(a => a.categoryId === categoryId);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Planilha de Atletas - ${category?.name}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; }
+            h1 { text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f2f2f2; text-transform: uppercase; font-size: 12px; }
+            .footer { margin-top: 40px; font-size: 10px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>Categoria: ${category?.name} (${category?.gender})</h1>
+          <p>Total de Atletas: ${catAthletes.length}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Completo</th>
+                <th>Apelido</th>
+                <th>Grupo</th>
+                <th>Professor</th>
+                <th>Assinatura</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${catAthletes.map(a => `
+                <tr>
+                  <td>${a.fullName}</td>
+                  <td>${a.nickname || '-'}</td>
+                  <td>${a.group}</td>
+                  <td>${a.professor}</td>
+                  <td></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} - Ceará Ginga Pro</div>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const printAllCategories = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let html = `
+      <html>
+        <head>
+          <title>Todas as Planilhas de Atletas</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; }
+            .page-break { page-break-after: always; }
+            h1 { text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f2f2f2; text-transform: uppercase; font-size: 12px; }
+            .footer { margin-top: 40px; font-size: 10px; color: #666; }
+            .header-info { display: flex; justify-content: space-between; align-items: center; }
+          </style>
+        </head>
+        <body>
+    `;
+
+    categories.forEach((category, index) => {
+      const catAthletes = athletes.filter(a => a.categoryId === category.id);
+      if (catAthletes.length === 0) return;
+
+      html += `
+        <div class="${index < categories.length - 1 ? 'page-break' : ''}">
+          <div class="header-info">
+            <h1>Categoria: ${category.name} (${category.gender})</h1>
+            <p>Total: ${catAthletes.length}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Completo</th>
+                <th>Apelido</th>
+                <th>Grupo</th>
+                <th>Professor</th>
+                <th>Assinatura</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${catAthletes.map(a => `
+                <tr>
+                  <td>${a.fullName}</td>
+                  <td>${a.nickname || '-'}</td>
+                  <td>${a.group}</td>
+                  <td>${a.professor}</td>
+                  <td></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} - Ceará Ginga Pro</div>
+        </div>
+      `;
+    });
+
+    html += `
+          <script>window.print();</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">Atletas Confirmados ({athletes.length})</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Atletas Confirmados ({athletes.length})</h2>
+        <button 
+          onClick={printAllCategories}
+          className="btn-primary flex items-center gap-2 bg-zinc-800 hover:bg-zinc-900"
+        >
+          <Printer size={18} /> Gerar Todas as Planilhas
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {categories.map(cat => (
+          <div key={cat.id} className="card flex items-center justify-between p-4">
+            <div>
+              <p className="font-bold">{cat.name}</p>
+              <p className="text-xs text-zinc-500">{athletes.filter(a => a.categoryId === cat.id).length} atletas</p>
+            </div>
+            <button 
+              onClick={() => printCategoryList(cat.id)}
+              className="p-2 bg-zinc-100 text-zinc-600 rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-2 text-xs font-bold"
+            >
+              <Printer size={16} /> Planilha
+            </button>
+          </div>
+        ))}
+      </div>
+
       <div className="grid gap-4">
         {athletes.map(athlete => (
           <div key={athlete.id} className="card flex items-center justify-between p-4">
@@ -456,8 +739,21 @@ function BracketsTab() {
         status: 'active'
       });
 
-      // Send notifications to athletes
+      // Discord Log for bracket generation
       const category = categories.find(c => c.id === categoryId);
+      await sendDiscordMessage(DISCORD_WEBHOOKS.STAFF, `🏆 **Chaveamento Gerado!**`, [
+        {
+          title: `Categoria: ${category?.name}`,
+          color: 0x9B59B6,
+          fields: [
+            { name: 'Atletas', value: catAthletes.length.toString(), inline: true },
+            { name: 'Lutas', value: matches.length.toString(), inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }
+      ]);
+
+      // Send notifications to athletes
       for (const athlete of catAthletes) {
         await addDoc(collection(db, 'notifications'), {
           uid: athlete.uid,
@@ -525,6 +821,17 @@ function AnnouncementsTab({ profile }: { profile: UserProfile }) {
       date: new Date().toISOString(),
       authorId: profile.uid
     });
+
+    // Discord Log for announcement
+    await sendDiscordMessage(DISCORD_WEBHOOKS.STAFF, `📢 **Novo Aviso Publicado!**`, [
+      {
+        title: newAnn.title,
+        description: newAnn.content,
+        color: 0x34495E,
+        timestamp: new Date().toISOString(),
+      }
+    ]);
+
     setNewAnn({ title: '', content: '' });
     setIsAdding(false);
   };
